@@ -42,6 +42,9 @@ ENV/
 ASSIGNMENT.md
 WORK.md
 
+# Models
+models/
+
 # Logs and temp files
 *.log
 *.tmp

@@ -1,7 +1,7 @@
 import pandas as pd
 from .a_data_loader import load_fashion_catalog
 from .b_color_extractor import extract_colors, evaluate_color_extraction
-from .c_gender_extractor import extract_gender, evaluate_gender_extraction
+from .i_gender_extractor_hybrid import extract_gender_hybrid, evaluate_gender_extraction
 from .f_brand_extractor_hybrid import extract_brands, evaluate_brand_extraction
 
 
@@ -10,7 +10,7 @@ def extract_all_attributes(df_products: pd.DataFrame) -> pd.DataFrame:
     df_products = extract_colors(df_products)
     
     print("Extracting genders...")
-    df_products = extract_gender(df_products)
+    df_products = extract_gender_hybrid(df_products)
     
     print("Extracting brands...")
     df_products = extract_brands(df_products)

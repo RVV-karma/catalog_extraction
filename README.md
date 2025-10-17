@@ -8,8 +8,8 @@ This project implements catalog understanding using attribute extraction (Color,
 
 Implemented a hybrid attribute extraction pipeline for fashion catalog products that achieves:
 - **Color Extraction: 99.93% accuracy** (with HSL-based normalization: 106 → 11 base colors)
-- **Brand Extraction: 93.67% accuracy** (Hybrid: Regex + spaCy fallback)
-- **Gender Extraction: 83.27% accuracy**
+- **Brand Extraction: 93.67% accuracy** (Hybrid: Regex + spaCy Transformer fallback)
+- **Gender Extraction: 89.87% accuracy** (Hybrid: Regex + E5-instruct embedding fallback)
 
 Datasets: 
 - [Fashion Clothing Products Catalog (Myntra)](https://www.kaggle.com/datasets/shivamb/fashion-clothing-products-catalog) - 12,762 products with ground truth for validation
@@ -69,8 +69,8 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
          │
          ▼
 ┌─────────────────┐
-│ Gender Extractor│  ← Pattern matching with 18 gender terms
-└────────┬────────┘   ← Word boundary detection, normalization
+│ Gender Extractor│  ← Hybrid: Regex (83.87%) + E5-instruct fallback (16.13%)
+└────────┬────────┘   ← Pattern matching + embedding similarity
          │
          ▼
 ┌─────────────────┐
@@ -470,6 +470,35 @@ print(f"Brand Accuracy: {results['brand']['accuracy']:.2%}")
   - Regex-only: 93.47% accuracy, 98.93% coverage
   - spaCy-only: 38.20% accuracy, 57.27% coverage
   - **Hybrid: 93.67% accuracy, 99.40% coverage** (best of both)
+
+### Gender Detection: Hybrid Approach (Regex + Embedding Fallback)
+
+We implemented a **hybrid gender extraction** strategy that combines regex precision with embedding-based fallback:
+
+- **Primary Strategy (83.87% of products):** Regex-based keyword matching
+  - Matches explicit gender terms in product names
+  - High precision for products with clear gender keywords
+  - Normalizes variants (man→men, woman→women, etc.)
+  
+- **Fallback Strategy (16.13% of products):** Instruction-tuned embeddings
+  - Model: `intfloat/multilingual-e5-large-instruct`
+  - Used only when regex finds no gender keywords
+  - Instruction: "Classify the product as men, women, or unisex based on the product name"
+  - Similarity threshold: 0.7 (higher threshold for precision)
+
+- **Performance Comparison:**
+  - Regex-only: 83.60% accuracy, 83.87% coverage
+  - Embedding-only: 77.53% accuracy, 100.00% coverage
+  - **Hybrid: 89.87% accuracy, 100.00% coverage** ✨
+
+- **Key Benefits:**
+  - +6.27% accuracy improvement over regex-only
+  - 100% coverage (no products left unclassified)
+  - Combines rule-based precision with ML generalization
+  
+- **Remaining Challenges:**
+  - Women's accessories (bags, jewelry, bras) → "unisex" (lack of explicit gender keywords)
+  - Could be improved with category-specific rules or fine-tuned models
 
 ---
 
