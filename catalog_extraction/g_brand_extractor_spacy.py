@@ -56,8 +56,8 @@ if __name__ == "__main__":
     
     from catalog_extraction.a_data_loader import load_fashion_catalog
     from catalog_extraction.b_color_extractor import extract_colors
-    from catalog_extraction.c_gender_extractor import extract_gender
-    import catalog_extraction.d_brand_extractor as regex_extractor
+    from catalog_extraction.e_gender_extractor_hybrid import extract_gender_hybrid
+    import catalog_extraction.f_brand_extractor as regex_extractor
     
     print("="*80)
     print("BRAND EXTRACTION: SPACY NER vs REGEX COMPARISON")
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     print("-"*80)
     df_products_regex = df_products.copy()
     df_products_regex = extract_colors(df_products_regex)
-    df_products_regex = extract_gender(df_products_regex)
+    df_products_regex = extract_gender_hybrid(df_products_regex)
     df_products_regex = regex_extractor.extract_brands(df_products_regex)
     
     print("\nExtracting with SPACY NER approach...")

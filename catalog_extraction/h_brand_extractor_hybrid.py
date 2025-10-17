@@ -1,7 +1,7 @@
 import pandas as pd
 import spacy
 from typing import Optional
-from catalog_extraction.d_brand_extractor import extract_brand_from_name
+from catalog_extraction.f_brand_extractor import extract_brand_from_name
 
 
 def extract_brand_with_spacy(name: str, nlp) -> Optional[str]:
@@ -72,9 +72,9 @@ if __name__ == "__main__":
     
     from catalog_extraction.a_data_loader import load_fashion_catalog
     from catalog_extraction.b_color_extractor import extract_colors
-    from catalog_extraction.c_gender_extractor import extract_gender
-    import catalog_extraction.d_brand_extractor as regex_extractor
-    import catalog_extraction.e_brand_extractor_spacy as spacy_extractor
+    from catalog_extraction.e_gender_extractor_hybrid import extract_gender_hybrid
+    import catalog_extraction.f_brand_extractor as regex_extractor
+    import catalog_extraction.g_brand_extractor_spacy as spacy_extractor
     
     print("="*80)
     print("BRAND EXTRACTION: HYBRID APPROACH (Regex + spaCy Fallback)")
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     print("\nExtracting colors and genders (needed for all approaches)...")
     print("-"*80)
     df_products = extract_colors(df_products)
-    df_products = extract_gender(df_products)
+    df_products = extract_gender_hybrid(df_products)
     
     print("\nExtracting with REGEX approach...")
     print("-"*80)

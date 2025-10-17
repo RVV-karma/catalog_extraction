@@ -150,13 +150,13 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 | Attribute | Total Products | Correct | Wrong | Accuracy | Coverage |
 |-----------|---------------|---------|-------|----------|----------|
 | **Color** | 1,378 | 1,377 | 1 | **99.93%** | 91.9% |
-| **Gender** | 1,500 | 1,249 | 251 | **83.27%** | 100% |
+| **Gender** | 1,500 | 1,348 | 152 | **89.87%** | 100% |
 | **Brand** | 1,500 | 1,405 | 95 | **93.67%** | 99.4% |
 
 **Key Insights:**
 
 - **Color Extraction:** Near-perfect accuracy. Only 1 error was a data quality issue (label: "Matte" instead of "Tan")
-- **Gender Extraction:** Good performance. Errors mainly on products without gender keywords (jewelry, accessories, home items)
+- **Gender Extraction:** Excellent performance with hybrid approach (89.87%). Regex (83.87% of products) + E5-instruct embedding fallback (16.13%) improves accuracy by +6.27% over regex-only
 - **Brand Extraction:** Excellent accuracy with hybrid approach (93.67%). Improvements achieved by:
   - Using extracted colors/genders as boundaries (regex baseline: 93.47%)
   - Handling hyphenated compound words
@@ -179,9 +179,10 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 *Color Extraction (1 error):*
 - Maybelline Foundation labeled as "Matte" (finish, not color) → Correctly extracted "Tan"
 
-*Gender Extraction (251 errors):*
-- 83% are products without gender keywords (bags, jewelry, home items, sarees)
-- 1 data labeling error found: "Roadster Women Joggers" labeled as "Men"
+*Gender Extraction (152 errors with hybrid approach):*
+- Most errors are women's accessories (bags, jewelry, bras) predicted as "unisex" by embedding fallback
+- Hybrid approach reduced errors from 251 → 152 (-40% error reduction)
+- Embedding fallback correctly classifies many products without explicit gender keywords
 
 *Brand Extraction (95 errors with hybrid approach):*
 - Multi-word brands missing last word (e.g., "U.S. Polo Assn. Kids" → "U.S. Polo Assn.")
@@ -247,13 +248,15 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 
 ```
 catalog_extraction/
-├── a_data_loader.py              # Load Myntra dataset
-├── b_color_extractor.py          # Color extraction + HSL normalization
-├── c_gender_extractor.py         # Gender extraction + evaluation
-├── d_brand_extractor.py          # Regex-based brand extraction (baseline)
-├── e_brand_extractor_spacy.py    # spaCy NER-based extraction (for comparison)
-├── f_brand_extractor_hybrid.py   # Hybrid: Regex + spaCy fallback (BEST)
-└── g_extract_all.py              # Full pipeline + summary
+├── a_data_loader.py                  # Load Myntra dataset
+├── b_color_extractor.py              # Color extraction + HSL normalization
+├── c_gender_extractor.py             # Gender extraction (regex baseline)
+├── d_gender_extractor_embedding.py   # Gender extraction (E5-instruct embedding)
+├── e_gender_extractor_hybrid.py      # Gender extraction (Hybrid: Regex + Embedding) ✨
+├── f_brand_extractor.py              # Brand extraction (regex baseline)
+├── g_brand_extractor_spacy.py        # Brand extraction (spaCy NER)
+├── h_brand_extractor_hybrid.py       # Brand extraction (Hybrid: Regex + spaCy) ✨
+└── i_extract_all.py                  # Full pipeline + summary
 
 data/
 ├── myntra_products_catalog.csv  # Product data
@@ -265,16 +268,18 @@ data/
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+python -m spacy download en_core_web_trf  # For brand extraction
 
 # Run full extraction pipeline
-python -m catalog_extraction.g_extract_all
+python -m catalog_extraction.i_extract_all
 
 # Run individual extractors
 python -m catalog_extraction.b_color_extractor
-python -m catalog_extraction.c_gender_extractor
-python -m catalog_extraction.d_brand_extractor          # Regex-only
-python -m catalog_extraction.e_brand_extractor_spacy    # spaCy NER comparison
-python -m catalog_extraction.f_brand_extractor_hybrid   # Hybrid (BEST)
+python -m catalog_extraction.c_gender_extractor           # Regex-only
+python -m catalog_extraction.e_gender_extractor_hybrid    # Hybrid (BEST)
+python -m catalog_extraction.f_brand_extractor            # Regex-only
+python -m catalog_extraction.g_brand_extractor_spacy      # spaCy NER comparison
+python -m catalog_extraction.h_brand_extractor_hybrid     # Hybrid (BEST)
 ```
 
 **Implementation Highlights:**
@@ -326,6 +331,8 @@ python -m catalog_extraction.f_brand_extractor_hybrid   # Hybrid (BEST)
 - Python 3.8+
 - Pandas 2.0+
 - spaCy 3.0+ (for hybrid brand extraction)
+- Transformers 4.30+ (for hybrid gender extraction)
+- PyTorch 2.0+ (for embedding models)
 
 ### Installation
 
@@ -335,6 +342,8 @@ pip install -r requirements.txt
 
 # Download spaCy transformer model (for hybrid brand extraction)
 python -m spacy download en_core_web_trf
+
+# Note: E5-instruct model for gender extraction will be downloaded automatically on first run
 ```
 
 ### Dataset Setup
@@ -349,7 +358,7 @@ Place the `myntra_products_catalog.csv` file in the `data/` directory.
 **Full Pipeline (All Extractors):**
 
 ```bash
-python -m catalog_extraction.extract_all
+python -m catalog_extraction.i_extract_all
 ```
 
 **Individual Extractors:**
@@ -359,11 +368,12 @@ python -m catalog_extraction.extract_all
 python -m catalog_extraction.b_color_extractor
 
 # Gender extraction
-python -m catalog_extraction.c_gender_extractor
+python -m catalog_extraction.c_gender_extractor           # Regex-only
+python -m catalog_extraction.e_gender_extractor_hybrid    # Hybrid (recommended)
 
 # Brand extraction (requires color and gender to be extracted first)
-python -m catalog_extraction.d_brand_extractor          # Regex-only
-python -m catalog_extraction.f_brand_extractor_hybrid   # Hybrid (recommended)
+python -m catalog_extraction.f_brand_extractor            # Regex-only
+python -m catalog_extraction.h_brand_extractor_hybrid     # Hybrid (recommended)
 ```
 
 ### Using as a Library
@@ -402,8 +412,8 @@ print(f"Brand Accuracy: {results['brand']['accuracy']:.2%}")
 | Attribute | Accuracy | Notes |
 |-----------|----------|-------|
 | Color | **99.93%** | Near-perfect; 1 data quality issue |
+| Gender | **89.87%** | Excellent; hybrid (regex + E5-instruct embedding fallback) |
 | Brand | **93.67%** | Excellent; hybrid (regex + spaCy fallback) |
-| Gender | **83.27%** | Good; limited by products without keywords |
 
 ### Sample Extractions
 
@@ -426,14 +436,15 @@ print(f"Brand Accuracy: {results['brand']['accuracy']:.2%}")
 
 ## 🎯 Key Achievements
 
-1. **High Accuracy:** 99.93% color extraction, 93.67% brand extraction (hybrid approach)
+1. **High Accuracy:** 99.93% color, 89.87% gender, 93.67% brand (all using hybrid approaches)
 2. **Color Normalization:** HSL-based mapping reduces 106 colors → 11 base colors (91% reduction)
-3. **Hybrid Approach:** Regex (98.93% coverage) + spaCy fallback (1.07%) = 99.40% coverage
-4. **Near-Zero Cost:** Regex-only for 98.93% of products, minimal LLM inference for edge cases
-5. **Fast:** < 10ms per product (regex), ~50ms when spaCy fallback needed
-6. **Scalable:** Can process millions of products
-7. **Maintainable:** Modular, clean code structure
-8. **Validated:** Tested against 1,500 labeled products
+3. **Gender Hybrid Approach:** Regex (83.87% coverage) + E5-instruct embedding (16.13%) = 89.87% accuracy, 100% coverage
+4. **Brand Hybrid Approach:** Regex (98.93% coverage) + spaCy fallback (1.07%) = 93.67% accuracy, 99.40% coverage
+5. **Near-Zero Cost:** Regex-only for majority of products, local ML inference for edge cases (no API costs)
+6. **Fast:** < 10ms per product (regex), ~50-100ms when ML fallback needed
+7. **Scalable:** Can process millions of products
+8. **Maintainable:** Modular, clean code structure
+9. **Validated:** Tested against 1,500 labeled products
 
 ---
 

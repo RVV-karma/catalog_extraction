@@ -82,7 +82,7 @@ if __name__ == "__main__":
     
     from catalog_extraction.a_data_loader import load_fashion_catalog
     from catalog_extraction.b_color_extractor import extract_colors
-    from catalog_extraction.c_gender_extractor import extract_gender
+    from catalog_extraction.e_gender_extractor_hybrid import extract_gender_hybrid
     
     print("Loading dataset...")
     df_products, df_validation = load_fashion_catalog(
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     df_products = extract_colors(df_products)
     
     print("Extracting genders...")
-    df_products = extract_gender(df_products)
+    df_products = extract_gender_hybrid(df_products)
     
     print("\nExtracting brands...")
     df_products = extract_brands(df_products)

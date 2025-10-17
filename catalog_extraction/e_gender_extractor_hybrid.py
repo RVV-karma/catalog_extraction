@@ -120,12 +120,15 @@ def evaluate_gender_extraction(df_products: pd.DataFrame, df_validation: pd.Data
     has_extraction = df_products['all_genders'].apply(lambda x: len(x) > 0).sum()
     coverage = has_extraction / len(df_products) * 100
     
+    df_wrong = df_valid[~df_valid['is_correct']]
+    
     return {
         'correct': int(correct),
         'total': int(total),
         'wrong': int(wrong),
-        'accuracy': correct / total * 100 if total > 0 else 0,
-        'coverage': coverage
+        'accuracy': correct / total if total > 0 else 0,
+        'coverage': coverage,
+        'df_wrong': df_wrong
     }
 
 
