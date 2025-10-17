@@ -1,8 +1,8 @@
 import pandas as pd
-from .data_loader import load_fashion_catalog
-from .color_extractor import extract_colors, evaluate_color_extraction
-from .gender_extractor import extract_gender, evaluate_gender_extraction
-from .brand_extractor import extract_brands, evaluate_brand_extraction
+from .a_data_loader import load_fashion_catalog
+from .b_color_extractor import extract_colors, evaluate_color_extraction
+from .c_gender_extractor import extract_gender, evaluate_gender_extraction
+from .f_brand_extractor_hybrid import extract_brands, evaluate_brand_extraction
 
 
 def extract_all_attributes(df_products: pd.DataFrame) -> pd.DataFrame:
@@ -58,7 +58,7 @@ if __name__ == "__main__":
         print(f"Name: {row['name'][:70]}...")
         print(f"Extracted Colors: {row['all_colors']}")
         print(f"Extracted Genders: {row['all_genders']}")
-        print(f"Extracted Brand: {row['extracted_brand']}")
+        print(f"Extracted Brand: {row['extracted_brand_hybrid']}")
         print("-" * 80)
     
     results = evaluate_all_extractions(df_products, df_validation)
@@ -104,9 +104,8 @@ if __name__ == "__main__":
         print(f"\nProduct ID: {row['product_id']}")
         print(f"Name: {row['name'][:60]}...")
         print(f"Ground Truth: {row['brand']}")
-        print(f"Extracted: {row['extracted_brand']}")
+        print(f"Extracted: {row['extracted_brand_hybrid']}")
     
     print("\n" + "="*80)
     print("EXTRACTION COMPLETE!")
     print("="*80)
-

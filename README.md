@@ -6,9 +6,9 @@ This project implements catalog understanding using attribute extraction (Color,
 
 ## 📊 Executive Summary
 
-Implemented a rule-based attribute extraction pipeline for fashion catalog products that achieves:
+Implemented a hybrid attribute extraction pipeline for fashion catalog products that achieves:
 - **Color Extraction: 99.93% accuracy** (with HSL-based normalization: 106 → 11 base colors)
-- **Brand Extraction: 93.47% accuracy**
+- **Brand Extraction: 93.67% accuracy** (Hybrid: Regex + spaCy fallback)
 - **Gender Extraction: 83.27% accuracy**
 
 Datasets: 
@@ -76,6 +76,7 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 ┌─────────────────┐
 │ Brand Extractor │  ← Uses extracted colors/genders as boundaries
 └────────┬────────┘   ← Handles multi-word brands (e.g., "Flying Machine")
+         │           ← Hybrid: Regex (98.93%) + spaCy fallback (1.07%)
          │
          ▼
 ┌─────────────────┐
@@ -136,11 +137,13 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 - Word boundary matching to avoid false positives
 - Normalization: man→men, woman→women, boy→boys, etc.
 
-**3. Brand Extraction:**
-- Uses extracted colors and genders as **boundaries**
+**3. Brand Extraction (Hybrid Approach):**
+- **Primary:** Uses extracted colors and genders as **boundaries**
 - Extracts text before first gender/color keyword
 - Handles hyphenated compound words (e.g., "Gold-Toned")
 - Multi-word brand support (e.g., "U.S. Polo Assn.")
+- **Fallback:** spaCy transformer NER when regex fails (1.07% of cases)
+- Improves coverage from 98.93% → 99.40%
 
 **Results:**
 
@@ -148,23 +151,28 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 |-----------|---------------|---------|-------|----------|----------|
 | **Color** | 1,378 | 1,377 | 1 | **99.93%** | 91.9% |
 | **Gender** | 1,500 | 1,249 | 251 | **83.27%** | 100% |
-| **Brand** | 1,500 | 1,402 | 98 | **93.47%** | 91.1% |
+| **Brand** | 1,500 | 1,405 | 95 | **93.67%** | 99.4% |
 
 **Key Insights:**
 
 - **Color Extraction:** Near-perfect accuracy. Only 1 error was a data quality issue (label: "Matte" instead of "Tan")
 - **Gender Extraction:** Good performance. Errors mainly on products without gender keywords (jewelry, accessories, home items)
-- **Brand Extraction:** Excellent accuracy. Improved from 82.67% to 93.47% by:
-  - Using extracted colors/genders as boundaries
+- **Brand Extraction:** Excellent accuracy with hybrid approach (93.67%). Improvements achieved by:
+  - Using extracted colors/genders as boundaries (regex baseline: 93.47%)
   - Handling hyphenated compound words
   - Splitting on hyphens to detect color sub-words
+  - Adding spaCy transformer NER fallback for edge cases (+0.20% accuracy, +0.47% coverage)
 
 **Latency:**
-- **Average:** ~0.05ms per product (regex-based)
-- **1,500 products:** ~75ms total (negligible)
+- **Average (regex):** ~0.05ms per product (98.93% of cases)
+- **Average (spaCy fallback):** ~50ms per product (1.07% of cases)
+- **Effective average:** ~0.6ms per product
+- **1,500 products:** ~900ms total (< 1 second)
 
 **Cost:**
-- **$0** - No LLM API calls, pure pattern matching
+- **Near-zero** - No LLM API calls
+- **spaCy inference:** Local transformer model (one-time download ~460MB)
+- **Production cost:** $0 per request (runs on your infrastructure)
 
 **Error Analysis:**
 
@@ -175,10 +183,10 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 - 83% are products without gender keywords (bags, jewelry, home items, sarees)
 - 1 data labeling error found: "Roadster Women Joggers" labeled as "Men"
 
-*Brand Extraction (98 errors):*
+*Brand Extraction (95 errors with hybrid approach):*
 - Multi-word brands missing last word (e.g., "U.S. Polo Assn. Kids" → "U.S. Polo Assn.")
 - Sub-brands included (e.g., "CASIO Enticer" instead of "CASIO")
-- Products with no color/gender boundary → returns None (can add fallback)
+- Hybrid approach reduced errors from 98 → 95 by using spaCy fallback for products without clear boundaries
 
 ---
 
@@ -215,7 +223,7 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 | Metric | Target | Alert Threshold |
 |--------|--------|-----------------|
 | Color Accuracy | ≥ 99% | < 95% |
-| Brand Accuracy | ≥ 93% | < 85% |
+| Brand Accuracy | ≥ 93.5% | < 85% |
 | Gender Accuracy | ≥ 83% | < 75% |
 | P95 Latency | ≤ 100ms | > 200ms |
 | Processing Errors | < 1% | > 5% |
@@ -239,15 +247,17 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 
 ```
 catalog_extraction/
-├── data_loader.py          # Load Myntra dataset
-├── color_extractor.py      # Color extraction + evaluation
-├── gender_extractor.py     # Gender extraction + evaluation
-├── brand_extractor.py      # Brand extraction + evaluation
-└── extract_all.py          # Full pipeline + summary
+├── a_data_loader.py              # Load Myntra dataset
+├── b_color_extractor.py          # Color extraction + HSL normalization
+├── c_gender_extractor.py         # Gender extraction + evaluation
+├── d_brand_extractor.py          # Regex-based brand extraction (baseline)
+├── e_brand_extractor_spacy.py    # spaCy NER-based extraction (for comparison)
+├── f_brand_extractor_hybrid.py   # Hybrid: Regex + spaCy fallback (BEST)
+└── g_extract_all.py              # Full pipeline + summary
 
 data/
 ├── myntra_products_catalog.csv  # Product data
-└── color_names.csv              # 1291 color names
+└── color_names.csv              # 1291 color names + HSL values
 ```
 
 **Running the Pipeline:**
@@ -257,12 +267,14 @@ data/
 pip install -r requirements.txt
 
 # Run full extraction pipeline
-python -m catalog_extraction.extract_all
+python -m catalog_extraction.g_extract_all
 
 # Run individual extractors
-python -m catalog_extraction.color_extractor
-python -m catalog_extraction.gender_extractor
-python -m catalog_extraction.brand_extractor
+python -m catalog_extraction.b_color_extractor
+python -m catalog_extraction.c_gender_extractor
+python -m catalog_extraction.d_brand_extractor          # Regex-only
+python -m catalog_extraction.e_brand_extractor_spacy    # spaCy NER comparison
+python -m catalog_extraction.f_brand_extractor_hybrid   # Hybrid (BEST)
 ```
 
 **Implementation Highlights:**
@@ -282,10 +294,11 @@ python -m catalog_extraction.brand_extractor
 - ✅ **Easy to maintain** - Update regex patterns vs prompt engineering
 
 **Short-term Improvements:**
-1. Add fallback logic for brand extraction (first N words, capitalized patterns)
+1. ✅ ~~Add fallback logic for brand extraction~~ → **Implemented hybrid approach (Regex + spaCy)**
 2. Expand gender detection with product category hints (bra → women, saree → women)
 3. Add material extraction (cotton, silk, leather, etc.)
 4. Add size extraction (S/M/L/XL, numeric sizes)
+5. Fine-tune spaCy NER on fashion domain for better fallback accuracy
 
 **Medium-term Enhancements (Add LLM for Edge Cases):**
 1. Use LLM (GPT-4o-mini / Gemini Flash) only for products where regex fails
@@ -312,12 +325,16 @@ python -m catalog_extraction.brand_extractor
 
 - Python 3.8+
 - Pandas 2.0+
+- spaCy 3.0+ (for hybrid brand extraction)
 
 ### Installation
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+
+# Download spaCy transformer model (for hybrid brand extraction)
+python -m spacy download en_core_web_trf
 ```
 
 ### Dataset Setup
@@ -339,13 +356,14 @@ python -m catalog_extraction.extract_all
 
 ```bash
 # Color extraction
-python -m catalog_extraction.color_extractor
+python -m catalog_extraction.b_color_extractor
 
 # Gender extraction
-python -m catalog_extraction.gender_extractor
+python -m catalog_extraction.c_gender_extractor
 
 # Brand extraction (requires color and gender to be extracted first)
-python -m catalog_extraction.brand_extractor
+python -m catalog_extraction.d_brand_extractor          # Regex-only
+python -m catalog_extraction.f_brand_extractor_hybrid   # Hybrid (recommended)
 ```
 
 ### Using as a Library
@@ -384,7 +402,7 @@ print(f"Brand Accuracy: {results['brand']['accuracy']:.2%}")
 | Attribute | Accuracy | Notes |
 |-----------|----------|-------|
 | Color | **99.93%** | Near-perfect; 1 data quality issue |
-| Brand | **93.47%** | Excellent; uses color/gender boundaries |
+| Brand | **93.67%** | Excellent; hybrid (regex + spaCy fallback) |
 | Gender | **83.27%** | Good; limited by products without keywords |
 
 ### Sample Extractions
@@ -408,13 +426,14 @@ print(f"Brand Accuracy: {results['brand']['accuracy']:.2%}")
 
 ## 🎯 Key Achievements
 
-1. **High Accuracy:** 99.93% color extraction, 93.47% brand extraction
+1. **High Accuracy:** 99.93% color extraction, 93.67% brand extraction (hybrid approach)
 2. **Color Normalization:** HSL-based mapping reduces 106 colors → 11 base colors (91% reduction)
-3. **Zero Cost:** No LLM API calls, pure pattern matching
-4. **Fast:** < 10ms per product
-5. **Scalable:** Can process millions of products
-6. **Maintainable:** Modular, clean code structure
-7. **Validated:** Tested against 1,500 labeled products
+3. **Hybrid Approach:** Regex (98.93% coverage) + spaCy fallback (1.07%) = 99.40% coverage
+4. **Near-Zero Cost:** Regex-only for 98.93% of products, minimal LLM inference for edge cases
+5. **Fast:** < 10ms per product (regex), ~50ms when spaCy fallback needed
+6. **Scalable:** Can process millions of products
+7. **Maintainable:** Modular, clean code structure
+8. **Validated:** Tested against 1,500 labeled products
 
 ---
 
@@ -437,11 +456,20 @@ print(f"Brand Accuracy: {results['brand']['accuracy']:.2%}")
 - Word boundary matching (avoids "women" matching in "women")
 - Singular → Plural mapping (man → men, woman → women)
 
-### Brand Extraction
-- Uses extracted colors and genders as boundaries
-- Extracts text before first gender/color keyword
-- Handles hyphenated compounds
-- Returns None if no boundary found (can add fallback)
+### Brand Extraction (Hybrid)
+- **Primary Strategy (98.93% of products):** Regex-based boundary detection
+  - Uses extracted colors and genders as boundaries
+  - Extracts text before first gender/color keyword
+  - Handles hyphenated compounds (splits "Gold-Toned" to detect "gold")
+  - Preserves special characters (dots, ampersands, hyphens)
+- **Fallback Strategy (1.07% of products):** spaCy Transformer NER
+  - Loads `en_core_web_trf` model for organization entity recognition
+  - Used only when regex finds no clear boundary
+  - Adds +0.20% accuracy improvement and +0.47% coverage
+- **Performance Comparison:**
+  - Regex-only: 93.47% accuracy, 98.93% coverage
+  - spaCy-only: 38.20% accuracy, 57.27% coverage
+  - **Hybrid: 93.67% accuracy, 99.40% coverage** (best of both)
 
 ---
 

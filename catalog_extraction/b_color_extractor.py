@@ -148,7 +148,7 @@ def evaluate_color_extraction(df_products: pd.DataFrame, df_validation: pd.DataF
 
 if __name__ == "__main__":
     
-    from catalog_extraction.data_loader import load_fashion_catalog
+    from catalog_extraction.a_data_loader import load_fashion_catalog
     
     print("Loading dataset...")
     df_products, df_validation = load_fashion_catalog(
