@@ -7,13 +7,13 @@ This project implements catalog understanding using attribute extraction (Color,
 ## 📊 Executive Summary
 
 Implemented a rule-based attribute extraction pipeline for fashion catalog products that achieves:
-- **Color Extraction: 99.93% accuracy**
+- **Color Extraction: 99.93% accuracy** (with HSL-based normalization: 106 → 11 base colors)
 - **Brand Extraction: 93.47% accuracy**
 - **Gender Extraction: 83.27% accuracy**
 
 Datasets: 
 - [Fashion Clothing Products Catalog (Myntra)](https://www.kaggle.com/datasets/shivamb/fashion-clothing-products-catalog) - 12,762 products with ground truth for validation
-- [Color Names Dataset](https://www.kaggle.com/datasets/avi1023/color-names) - 1,291 color names for pattern matching
+- [Color Names Dataset](https://www.kaggle.com/datasets/avi1023/color-names) - 1,291 color names with HSL values for color science-based normalization
 
 ---
 
@@ -64,7 +64,8 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
          ▼
 ┌─────────────────┐
 │ Color Extractor │  ← Regex matching with 1222 color names
-└────────┬────────┘   ← Handles hyphenated compounds (e.g., "Gold-Toned")
+└────────┬────────┘   ← HSL-based normalization: 106 colors → 11 base colors
+         │           ← Handles hyphenated compounds (e.g., "Gold-Toned")
          │
          ▼
 ┌─────────────────┐
@@ -87,11 +88,12 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 
 1. **Sources:**
    - Fashion product catalog (product names + descriptions)
-   - Color names dataset (1222 colors with bracket cleaning)
+   - Color names dataset (1,222 colors with HSL values for normalization)
    - Ground truth labels (Color, Gender, Brand)
 
 2. **Extraction:**
    - **Regex-based pattern matching** for colors and genders
+   - **HSL-based color normalization** using color science (Hue/Saturation/Lightness)
    - **Boundary detection** for brand extraction
    - **Value normalization** (singular→plural, e.g., "man"→"men")
 
@@ -120,10 +122,14 @@ Automate catalog enrichment to ensure product listings are complete, accurate, a
 **Implementation Approach:**
 
 **1. Color Extraction:**
-- Loaded 1291 color names, cleaned brackets/parentheses
+- Loaded 1,291 color names, cleaned brackets/parentheses
 - Added "grey" (British spelling) for dataset compatibility
 - Regex matching in product name and description
 - Handles multiple colors per product
+- **HSL-based normalization:** Reduces 106 extracted colors → 11 base colors
+  - Uses Hue, Saturation, Lightness values for color science-based mapping
+  - Base colors: Red, Orange, Yellow, Green, Blue, Purple, Pink, Brown, Black, White, Grey
+  - Examples: Navy → Blue, Mustard → Yellow, Beige → Brown
 
 **2. Gender Extraction:**
 - 18 gender terms (men, women, boys, girls, kids, unisex, etc.)
@@ -384,17 +390,17 @@ print(f"Brand Accuracy: {results['brand']['accuracy']:.2%}")
 ### Sample Extractions
 
 **Product 1: Flying Machine Boys Blue Regular Fit...**
-- ✅ Colors: ['blue']
+- ✅ Colors: ['blue'] → Normalized: ['blue']
 - ✅ Genders: ['boys']
 - ✅ Brand: Flying Machine
 
 **Product 2: AURELIA Women Mustard Yellow Regular Fit...**
-- ✅ Colors: ['mustard', 'yellow']
+- ✅ Colors: ['mustard', 'yellow'] → Normalized: ['yellow']
 - ✅ Genders: ['women']
 - ✅ Brand: AURELIA
 
 **Product 3: Genius18 Men White & Navy Blue Printed...**
-- ✅ Colors: ['white', 'blue', 'navy']
+- ✅ Colors: ['white', 'blue', 'navy'] → Normalized: ['white', 'blue']
 - ✅ Genders: ['men']
 - ✅ Brand: Genius18
 
@@ -403,11 +409,12 @@ print(f"Brand Accuracy: {results['brand']['accuracy']:.2%}")
 ## 🎯 Key Achievements
 
 1. **High Accuracy:** 99.93% color extraction, 93.47% brand extraction
-2. **Zero Cost:** No LLM API calls, pure pattern matching
-3. **Fast:** < 0.1ms per product
-4. **Scalable:** Can process millions of products
-5. **Maintainable:** Modular, clean code structure
-6. **Validated:** Tested against 1,500 labeled products
+2. **Color Normalization:** HSL-based mapping reduces 106 colors → 11 base colors (91% reduction)
+3. **Zero Cost:** No LLM API calls, pure pattern matching
+4. **Fast:** < 10ms per product
+5. **Scalable:** Can process millions of products
+6. **Maintainable:** Modular, clean code structure
+7. **Validated:** Tested against 1,500 labeled products
 
 ---
 
@@ -418,6 +425,12 @@ print(f"Brand Accuracy: {results['brand']['accuracy']:.2%}")
 - Handles compound colors (e.g., "Gold-Toned" → "gold")
 - Removes bracketed modifiers (e.g., "Green (Crayola)" → "green")
 - British spelling support ("grey" added)
+- **HSL-based normalization** using color science:
+  - Hue (0-360°), Saturation (%), Lightness (%) from dataset
+  - Achromatic colors (S < 10%): Black, White, Grey by lightness
+  - Chromatic colors: Mapped by hue angle to 11 base colors
+  - Reduces 106 color variants → 11 standardized colors
+  - Examples: Navy (H=240°, L=25%) → Blue, Gold (H=51°, L=50%) → Brown
 
 ### Gender Extraction
 - 18 gender terms with normalization

@@ -1,13 +1,79 @@
 import pandas as pd
-from typing import List, Set
+from typing import List, Set, Dict
 
 
 def load_color_names(color_data_path: str = "data/color_names.csv") -> Set[str]:
     df_colors = pd.read_csv(color_data_path)
     color_names = df_colors['Name'].str.replace(r'\([^)]*\)', '', regex=True).str.strip().str.lower().tolist()
     color_set = set(color_names)
-    color_set.add('grey')  # Add British spelling (dataset has 'gray')
+    color_set.add('grey')
     return color_set
+
+
+def load_color_data(color_data_path: str = "data/color_names.csv") -> pd.DataFrame:
+    return pd.read_csv(color_data_path)
+
+
+def normalize_color_by_hsl(color_name: str, df_colors: pd.DataFrame) -> str:
+    color_row = df_colors[df_colors['Name'].str.lower() == color_name.lower()]
+    
+    if color_row.empty:
+        clean_name = color_name.split('(')[0].strip().lower()
+        color_row = df_colors[df_colors['Name'].str.lower() == clean_name]
+        if color_row.empty:
+            return color_name.lower()
+    
+    color_row = color_row.iloc[0]
+    
+    hue = color_row['Hue (degrees)']
+    saturation = color_row['HSL.S (%)']
+    lightness = color_row['HSL.L (%), HSV.S (%), HSV.V (%)']
+    
+    if saturation < 10:
+        if lightness < 20:
+            return 'black'
+        elif lightness > 85:
+            return 'white'
+        else:
+            return 'grey'
+    
+    if (30 <= hue <= 60) and (20 <= lightness <= 50):
+        return 'brown'
+    
+    if hue < 30 or hue >= 330:
+        return 'red'
+    elif 30 <= hue < 45:
+        if lightness < 40 or saturation < 40:
+            return 'brown'
+        return 'orange'
+    elif 45 <= hue < 75:
+        return 'yellow'
+    elif 75 <= hue < 90:
+        return 'orange'
+    elif 90 <= hue < 150:
+        return 'green'
+    elif 150 <= hue < 270:
+        return 'blue'
+    elif 270 <= hue < 300:
+        return 'purple'
+    elif 300 <= hue < 330:
+        if lightness > 60:
+            return 'pink'
+        return 'purple'
+    
+    return color_name.lower()
+
+
+def create_normalization_map(df_colors: pd.DataFrame) -> Dict[str, str]:
+    normalization_map = {}
+    for idx, row in df_colors.iterrows():
+        color_name = row['Name']
+        clean_name = color_name.split('(')[0].strip().lower()
+        normalized = normalize_color_by_hsl(color_name, df_colors)
+        normalization_map[clean_name] = normalized
+    
+    normalization_map['grey'] = normalization_map.get('gray', 'grey')
+    return normalization_map
 
 
 def extract_colors_from_text(text: str, color_names: Set[str]) -> List[str]:
@@ -39,6 +105,13 @@ def extract_colors(df_products: pd.DataFrame, color_data_path: str = "data/color
     df_products['all_colors'] = df_products.apply(
         lambda row: list(set(row['colors_from_name'] + row['colors_from_description'])),
         axis=1
+    )
+    
+    df_colors = load_color_data(color_data_path)
+    normalization_map = create_normalization_map(df_colors)
+    
+    df_products['all_normalized_colors'] = df_products['all_colors'].apply(
+        lambda colors: list(set([normalization_map.get(c.lower(), c.lower()) for c in colors]))
     )
     
     return df_products
@@ -95,7 +168,22 @@ if __name__ == "__main__":
         print(f"Colors from name: {row['colors_from_name']}")
         print(f"Colors from description: {row['colors_from_description']}")
         print(f"All colors: {row['all_colors']}")
+        print(f"Normalized colors: {row['all_normalized_colors']}")
         print("-" * 80)
+    
+    all_extracted_colors = []
+    all_normalized_colors = []
+    for colors in df_products['all_colors']:
+        all_extracted_colors.extend(colors)
+    for colors in df_products['all_normalized_colors']:
+        all_normalized_colors.extend(colors)
+    
+    print("\n" + "=" * 80)
+    print("COLOR NORMALIZATION SUMMARY")
+    print("=" * 80)
+    print(f"Unique extracted colors: {len(set(all_extracted_colors))}")
+    print(f"Unique normalized colors: {len(set(all_normalized_colors))}")
+    print(f"\nNormalized colors list: {sorted(set(all_normalized_colors))}")
     
     print("\nEvaluating accuracy...")
     results = evaluate_color_extraction(df_products, df_validation)
