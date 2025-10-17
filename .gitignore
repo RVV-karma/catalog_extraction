@@ -42,12 +42,6 @@ ENV/
 ASSIGNMENT.md
 WORK.md
 
-# Data files (large datasets)
-data/*.csv
-data/*.json
-data/*.parquet
-!data/color_names.csv
-
 # Logs and temp files
 *.log
 *.tmp
